@@ -12,7 +12,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,6 +37,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +52,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kvlg.composetimer.ui.theme.ComposeTimerTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,13 +70,15 @@ class MainActivity : ComponentActivity() {
 @Composable
 @Preview
 fun Timer() {
-    var timerValue1 by remember { mutableStateOf(100) }
-    var timerValue2 by remember { mutableStateOf(100) }
+    var timerValue1 by remember { mutableStateOf(10) }
+    var timerValue2 by remember { mutableStateOf(10) }
     var isTutorialVisible by remember { mutableStateOf(false) }
+    var deltaDragValue by remember { mutableStateOf(0f) }
     val angle = remember { Animatable(InitialValue) }
     var isTimerStarted by remember { mutableStateOf(false) }
     val borderWidth = with(LocalDensity.current) { 12.dp.toPx() }
     var isInLeftSide by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     LaunchedEffect(key1 = isTimerStarted) {
         if (isTimerStarted) {
             angle.animateTo(targetValue = TargetValue, animationSpec = tween(durationMillis = 5000, easing = LinearEasing))
@@ -90,22 +95,30 @@ fun Timer() {
                 .padding(16.dp)
                 .size(256.dp)
                 .pointerInput(Unit) {
-                    detectDragGesturesAfterLongPress(
-                        onDragStart = {
+                    detectTapGestures(
+                        onPress = {
                             isTutorialVisible = true
-                            isInLeftSide = it.x <= size.width / 2
-                        },
-                        onDrag = { input, offset ->
+                            scope.launch { isTutorialVisible = !tryAwaitRelease() }
+                        }
+                    )
+                }
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onVerticalDrag = { change, dragAmount ->
+                            isTutorialVisible = true
                             if (isInLeftSide) {
-                                timerValue1 -= offset.y.toInt()
+                                timerValue1 -= (dragAmount).toInt()
                             } else {
-                                timerValue2 -= offset.y.toInt()
+                                timerValue2 -= (dragAmount).toInt()
                             }
                         },
-                        onDragEnd = {
-                            isTutorialVisible = false
+                        onDragStart = {
+                            isTutorialVisible = true
                         },
                         onDragCancel = {
+                            isTutorialVisible = false
+                        },
+                        onDragEnd = {
                             isTutorialVisible = false
                         }
                     )
@@ -118,7 +131,7 @@ fun Timer() {
                     useCenter = false,
                     style = Stroke(width = borderWidth, cap = StrokeCap.Round))
             }
-            TimerText("$timerValue1", "$timerValue2", isTutorial = false)
+            TimerText("${timerValue1 / 10}", "${timerValue2 / 10}", isTutorial = false)
         }
         if (isTimerStarted) {
             BottomButton(icon = Icons.Rounded.ArrowBack, onClick = { isTimerStarted = !isTimerStarted }, isLeftButton = true)
@@ -132,7 +145,7 @@ fun Timer() {
             .fillMaxSize()
             .background(color = Color.Black.copy(alpha = 0.7f))
             .padding(16.dp)) {
-            TimerText("$timerValue1", "$timerValue2", isTutorial = true, isLeftSide = isInLeftSide)
+            TimerText("${timerValue1 / 10}", "${timerValue2 / 10}", isTutorial = true, isLeftSide = isInLeftSide)
             Text(text = "Minutes", modifier = Modifier.align(Alignment.BottomStart))
             Text(text = "Seconds", modifier = Modifier.align(Alignment.BottomEnd))
         }

@@ -107,9 +107,11 @@ fun Timer() {
                             isTutorialVisible = true
                             isInLeftSide = change.position.x <= size.width / 2
                             if (isInLeftSide) {
-                                timerValue1 -= (dragAmount).toInt()
+                                val temp = timerValue1 - (dragAmount).toInt()
+                                timerValue1 = temp.coerceAtLeast(0)
                             } else {
-                                timerValue2 -= (dragAmount).toInt()
+                                val temp = timerValue2 - (dragAmount).toInt()
+                                timerValue2 = temp.coerceIn(0..599)
                             }
                         },
                         onDragStart = {

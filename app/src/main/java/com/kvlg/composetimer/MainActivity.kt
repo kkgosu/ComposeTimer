@@ -11,10 +11,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -27,7 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.ripple.rememberRipple
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -42,12 +40,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -73,10 +72,8 @@ fun Timer() {
     var timerValue1 by remember { mutableStateOf(10) }
     var timerValue2 by remember { mutableStateOf(10) }
     var isTutorialVisible by remember { mutableStateOf(false) }
-    var deltaDragValue by remember { mutableStateOf(0f) }
     val angle = remember { Animatable(InitialValue) }
     var isTimerStarted by remember { mutableStateOf(false) }
-    val borderWidth = with(LocalDensity.current) { 12.dp.toPx() }
     var isInLeftSide by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(key1 = isTimerStarted) {
@@ -86,10 +83,11 @@ fun Timer() {
     }
     Box(modifier = Modifier
         .fillMaxSize()
-        .padding(16.dp)) {
+        .background(color = Color(0xFF77A18A))
+        .padding(32.dp)) {
         Box(modifier = Modifier.align(Alignment.Center)) {
-            val background = MaterialTheme.colorScheme.primary
-            val borderColor = MaterialTheme.colorScheme.secondary
+            val background = Color(0xFF60816F)
+            val borderColor = Color.White
             Canvas(modifier = Modifier
                 .align(Alignment.Center)
                 .padding(16.dp)
@@ -98,6 +96,7 @@ fun Timer() {
                     detectTapGestures(
                         onPress = {
                             isTutorialVisible = true
+                            isInLeftSide = it.x <= size.width / 2
                             scope.launch { isTutorialVisible = !tryAwaitRelease() }
                         }
                     )
@@ -106,6 +105,7 @@ fun Timer() {
                     detectVerticalDragGestures(
                         onVerticalDrag = { change, dragAmount ->
                             isTutorialVisible = true
+                            isInLeftSide = change.position.x <= size.width / 2
                             if (isInLeftSide) {
                                 timerValue1 -= (dragAmount).toInt()
                             } else {
@@ -125,20 +125,33 @@ fun Timer() {
                 }
             ) {
                 drawCircle(color = background)
+                drawArc(color = Color.Black,
+                    startAngle = StartAngle,
+                    sweepAngle = angle.value,
+                    useCenter = false,
+                    alpha = 0.2f,
+                    size = size,
+                    topLeft = Offset(0f, 20f),
+                    style = Stroke(width = size.minDimension * 0.05f, cap = StrokeCap.Round))
                 drawArc(color = borderColor,
                     startAngle = StartAngle,
                     sweepAngle = angle.value,
                     useCenter = false,
-                    style = Stroke(width = borderWidth, cap = StrokeCap.Round))
+                    size = size,
+                    style = Stroke(width = size.minDimension * 0.05f, cap = StrokeCap.Round))
             }
             TimerText("${timerValue1 / 10}", "${timerValue2 / 10}", isTutorial = false)
         }
-        if (isTimerStarted) {
-            BottomButton(icon = Icons.Rounded.ArrowBack, onClick = { isTimerStarted = !isTimerStarted }, isLeftButton = true)
-        } else {
-            BottomButton(icon = Icons.Rounded.PlayArrow, onClick = { isTimerStarted = !isTimerStarted }, isLeftButton = true)
+        Row(modifier = Modifier.align(Alignment.BottomCenter), horizontalArrangement = Arrangement.Center) {
+            if (isTimerStarted) {
+                BottomButton(icon = Icons.Rounded.ArrowBack, onClick = { isTimerStarted = !isTimerStarted }, isLeftButton = true)
+            } else {
+                BottomButton(icon = Icons.Rounded.PlayArrow, onClick = { isTimerStarted = !isTimerStarted }, isLeftButton = true)
+            }
+            BottomButton(icon = Icons.Rounded.Refresh,
+                onClick = { timerValue1 = 0; timerValue2 = 0; scope.launch { angle.snapTo(InitialValue) }; isTimerStarted = false },
+                isLeftButton = false)
         }
-        BottomButton(icon = Icons.Rounded.Refresh, onClick = { isTimerStarted = !isTimerStarted }, isLeftButton = false)
     }
     AnimatedVisibility(visible = isTutorialVisible, enter = fadeIn(), exit = fadeOut()) {
         Box(modifier = Modifier
@@ -152,30 +165,29 @@ fun Timer() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BoxScope.BottomButton(
+fun BottomButton(
     icon: ImageVector,
     onClick: () -> Unit,
     isLeftButton: Boolean,
+    isActive: Boolean = true,
 ) {
-    val indication = rememberRipple(
-        bounded = false,
-        radius = 50.dp
-    )
-    val alignment = if (isLeftButton) Alignment.BottomStart else Alignment.BottomEnd
-    Icon(imageVector = icon,
-        tint = Color.Green,
-        contentDescription = "", modifier = Modifier
-            .padding(start = 32.dp, end = 32.dp)
-            .size(100.dp)
-            .align(alignment)
-            .clickable(interactionSource = remember { MutableInteractionSource() },
-                indication = indication,
-                onClick = onClick
-            )
-            .clip(CircleShape)
-            .background(Color.LightGray)
-    )
+    val alpha = if (isActive) 0.95f else 0.5f
+    val color = if (isLeftButton) Color.White.copy(alpha = alpha) else Color.Black.copy(alpha = 0.25f)
+    val tint = if (isLeftButton) Color(0xFF4BB583) else Color.White
+    val size = 80.dp
+    Surface(modifier = Modifier
+        .padding(start = 32.dp, end = 32.dp),
+        shape = CircleShape, color = color, onClick = onClick, enabled = !isLeftButton || (isLeftButton && isActive)) {
+        Icon(imageVector = icon,
+            tint = tint,
+            contentDescription = "", modifier = Modifier
+                .padding(8.dp)
+                .size(size)
+                .clip(CircleShape)
+        )
+    }
 }
 
 @Composable
@@ -187,11 +199,10 @@ private fun BoxScope.TimerText(
 ) {
     val leftTextColor = if (isTutorial && !isLeftSide) Color.Transparent else Color.White
     val rightTextColor = if (isTutorial && isLeftSide) Color.Transparent else Color.White
-    val colonTextColor = if (isTutorial) Color.Transparent else Color.White
     Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.align(Alignment.Center)) {
-        Text(text = value1, color = leftTextColor, fontSize = 60.sp)
-        Text(text = ":", color = colonTextColor, fontSize = 60.sp)
-        Text(text = value2, color = rightTextColor, fontSize = 60.sp)
+        Text(text = value1, color = leftTextColor, fontSize = 60.sp, fontStyle = FontStyle.Italic)
+        Text(text = ":", color = Color.White, fontSize = 60.sp, fontStyle = FontStyle.Italic)
+        Text(text = value2, color = rightTextColor, fontSize = 60.sp, fontStyle = FontStyle.Italic)
     }
 }
 

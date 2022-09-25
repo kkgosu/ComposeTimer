@@ -85,6 +85,18 @@ fun Timer() {
         .fillMaxSize()
         .background(color = Color(0xFF77A18A))
         .padding(32.dp)) {
+        Text(modifier = Modifier
+            .align(Alignment.TopCenter)
+            .padding(top = 4.dp),
+            text = "Compose Timer",
+            color = Color.Black.copy(alpha = 0.2f),
+            fontSize = 40.sp,
+            fontStyle = FontStyle.Italic)
+        Text(modifier = Modifier.align(Alignment.TopCenter),
+            text = "Compose Timer",
+            color = Color.White,
+            fontSize = 40.sp,
+            fontStyle = FontStyle.Italic)
         Box(modifier = Modifier.align(Alignment.Center)) {
             val background = Color(0xFF60816F)
             val borderColor = Color.White

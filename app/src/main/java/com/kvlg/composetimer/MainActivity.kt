@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -37,7 +38,8 @@ import com.kvlg.composetimer.ui.theme.Typography
 import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
-import kotlin.math.roundToInt
+import kotlin.math.floor
+import kotlin.math.max
 import kotlin.math.sin
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -74,7 +76,7 @@ fun Countdown() {
             .background(Brush.radialGradient(listOf(BgColorCenter, BgColorEdge))),
             verticalArrangement = Arrangement.Center) {
             TickWheel(modifier = Modifier.fillMaxWidth(), state = state, ticks = 40, startColor = LightOrange, endColor = DarkRed) {
-
+                Text(text = state.time)
             }
         }
     }
@@ -85,29 +87,49 @@ class TickWheelState(
 ) {
     var totalSeconds by mutableStateOf(0)
         private set
+    val seconds: Int
+        get() = totalSeconds % 60
+    val minutes: Int
+        get() = floor(totalSeconds.toDouble() / 60).toInt()
     var isDragging by mutableStateOf(false)
-    var position by mutableStateOf<Offset?>(null)
-    var secondsLeft by mutableStateOf<Int>(0)
     private var endPosition by mutableStateOf<Offset?>(null)
+    val time: String
+        get() = buildString {
+            append("$minutes".padStart(2, '0'))
+            append(":")
+            append("$seconds".padStart(2, '0'))
+        }
     private var job: Job? = null
 
     fun startDrag(startPos: Offset) {
-        position = startPos
+        endPosition = startPos
         isDragging = true
         stop()
     }
 
     fun onDrag(delta: Offset) {
-        val current = position
-        val next = current?.let { it + delta } ?: delta
-        secondsLeft = ((next.theta + 180f) / 360 * 60).roundToInt()
-        position = next
+        val prev = endPosition
+        val next = if (prev != null) {
+            val prevTheta = prev.theta
+            val next = prev + delta
+            val nextTheta = next.theta
+            val nextMinutes = when {
+                prevTheta > 90f && nextTheta < -90f -> minutes + 1
+                prevTheta < -90f && nextTheta > 90f -> max(0, minutes - 1)
+                else -> minutes
+            }
+            val nextSeconds = floor((nextMinutes) * 60 + ((next.theta + 180f) / 360f * 60f)).toInt()
+            totalSeconds = nextSeconds
+            next
+        } else {
+            delta
+        }
+        endPosition = next
     }
 
     fun endDrag() {
-        val current = position
+        val current = endPosition
         current?.let {
-            secondsLeft = ((it.theta + 180f) / 360 * 60).roundToInt()
             isDragging = false
         } ?: run {
             error("Position was null when it shouldn't have been")
@@ -170,7 +192,7 @@ fun TickWheel(
             )
         }
         .drawBehind {
-            val endTheta = state.position?.theta ?: -180f
+            val endTheta = state.seconds * 6 - 180
             val startRadius = size.width / 2 * StartRadiusFraction
             val endRadius = size.width / 2 * EndRadiusFraction
             val sweep = Brush.sweepGradient(
@@ -202,7 +224,7 @@ fun TickWheel(
 }
 
 val Offset.theta get() = (atan2(y.toDouble(), x.toDouble()) * 180.0 / PI).toFloat()
-const val StartRadiusFraction = 0.5f
+const val StartRadiusFraction = 0.4f
 const val EndRadiusFraction = 0.75f
 const val TickWidth = 9f
 
